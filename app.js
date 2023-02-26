@@ -412,6 +412,9 @@ app.post('/favoriteTeams', (req, res) => {
 app.get('/matchesSlider', (req, res) => {
     res.send(matchesSlider);
 });
+app.get('*', (req, res) =>{
+    res.sendFile(path.join(__dirname + "/public/index.html"));
+});
 
 
 const parsing = async () => {
