@@ -2798,12 +2798,12 @@ const parsing = async () => {
             });
         });
 
-        db.query('DELETE FROM unlTS', (err => {
+        db.query('DELETE FROM unlts', (err => {
             if(err) throw err;
         }));
 
         unlTopScores.map((e) => {
-            db.query('INSERT INTO unlTS (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
+            db.query('INSERT INTO unlts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
         });
