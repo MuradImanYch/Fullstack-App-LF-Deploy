@@ -3874,7 +3874,7 @@ const parsing = async () => {
     }));
 
     euQualResults.map((e) => {
-        db.query('INSERT INTO euQualresults (round, hName, aName, hLogo, aLogo, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.round, e.hName, e.aName, e.hLogo, e.aLogo, e.hScore, e.aScore, e.dateTime], (err => {
+        db.query('INSERT INTO euqualresults (round, hName, aName, hLogo, aLogo, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.round, e.hName, e.aName, e.hLogo, e.aLogo, e.hScore, e.aScore, e.dateTime], (err => {
             if(err) throw err;
         }));
     });
