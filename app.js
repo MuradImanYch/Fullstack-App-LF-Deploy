@@ -50,9 +50,6 @@ app.use('/leagueinfo', leagueSeasonInfoRoutes);
 app.use('/like', likeRoutes);
 app.use('/views', viewsRoutes);
 app.use(cookieParser());
-app.use('/robots.txt', (req, res) => {
-    res.status(404);
-  });
 
 const storage = multer.diskStorage({ // multer handler
     destination: (req, file, cb) => {

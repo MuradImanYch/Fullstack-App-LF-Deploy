@@ -117,7 +117,8 @@ let liveMatches = [],
     euQualResults = [],
     unlInfo = [],
     unlFixtures = [],
-    unlResults = []
+    unlResults = [],
+    expectedMatches = []
 
 const liveParsing = async () => {
     await axios.get('https://soccer365.ru/online/') // liveMatches
@@ -161,6 +162,37 @@ const liveParsing = async () => {
 
     liveMatches.map((e) => {
         db.query('INSERT INTO livematches (hName, aName, hScore, aScore, hLogo, aLogo, lLogo, lName, time, round, roundInfo) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.hName, e.aName, e.hScore, e.aScore, e.hLogo, e.aLogo, e.lLogo, e.lNameRoundDateTime[0]?.indexOf('Товарищеский') !== -1 ? 'Товарищеский' : e.lNameRoundDateTime[0], e.time, e.lNameRoundDateTime[1], e.lNameRoundDateTime[2]], (err => {
+            if(err) throw err;
+        }));
+    });
+
+    await axios.get('https://soccer365.ru/') // expected matches
+    .then(response => response.data)
+    .then(response => {
+        const $ = cheerio.load(response);
+
+        $('.block_body_nopadding .game_block').each((i, element) => {
+            expectedMatches.push({
+                hName: $(element).find('a .result .ht .name .img16 span').text() === '' ? $(element).find('a .result .ht .name').text() : $(element).find('a .result .ht .name .img16 span').text(),
+                aName: $(element).find('a .result .at .name .img16 span').text() === '' ? $(element).find('a .result .at .name').text() : $(element).find('a .result .at .name .img16 span').text(),
+                hLogo: $(element).find('a .result .ht .name .img16 img').attr('src'),
+                aLogo: $(element).find('a .result .at .name .img16 img').attr('src'),
+                lLogo: $(element).find('a .cmp .img16 img').attr('src'),
+                lName: $(element).find('a .cmp .img16').text(),
+                hScore: $(element).find('a .result .ht .gls').text(),
+                aScore: $(element).find('a .result .at .gls').text(),
+                dateTime: $(element).find('a .status').text()
+            });
+        });
+    })
+    .catch(err => console.log(err));
+
+    db.query('DELETE FROM expectedmatches', (err => {
+        if(err) throw err;
+    }));
+
+    expectedMatches.map((e) => {
+        db.query('INSERT INTO expectedmatches (hName, aName, hLogo, aLogo, lLogo, lName, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.hName, e.aName, e.hLogo, e.aLogo, e.lLogo, e.lName.indexOf('Товарищеский') !== -1 ? 'Товарищеский' : e.lName, e.hScore, e.aScore, e.dateTime], (err => {
             if(err) throw err;
         }));
     });
@@ -2423,560 +2455,390 @@ const parsing = async () => {
     });
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/russia/premier/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const rplTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $rplTopScores = cheerio.load(rplTopScoresHtml);
+        const rplTopScoresRes = await fetch( // rplTopScores
+        'https://www.sport-express.ru/football/L/russia/premier/2023-2024/statistics/bombardiers/'
+        );
+        const rplTopScoresCharset = (rplTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const rplTopScoresBuf = await rplTopScoresRes.arrayBuffer();
+        const rplTopScoresHtml = iconv.decode(
+            Buffer.from(rplTopScoresBuf),
+            rplTopScoresCharset || 'windows-1251'
+        );
+        const $rplTopScores = cheerio.load(rplTopScoresHtml);
 
-            $rplTopScores('table.se19-table-statistics tr').each((i, element) => {
-                rplTopScores.push({
-                    place: $rplTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $rplTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $rplTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $rplTopScores(element).find('td').eq(4).text(),
-                    goals: $rplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $rplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $rplTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $rplTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $rplTopScores('table.se19-table-statistics tr').each((i, element) => {
+            rplTopScores.push({
+                place: $rplTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $rplTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $rplTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $rplTopScores(element).find('td').eq(4).text(),
+                goals: $rplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $rplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $rplTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $rplTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM rplts', (err => {
+        });
+
+        db.query('DELETE FROM rplts', (err => {
+            if(err) throw err;
+        }));
+
+        rplTopScores.map((e) => {
+            db.query('INSERT INTO rplts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            rplTopScores.map((e) => {
-                db.query('INSERT INTO rplts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $rplTopScores to parse and manipulate the HTML data
-            // For example: $rplTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $rplTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/foreign/england/premier/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const eplTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $eplTopScores = cheerio.load(eplTopScoresHtml);
+        const eplTopScoresRes = await fetch( // eplTopScores
+            'https://www.sport-express.ru/football/L/foreign/england/premier/2023-2024/statistics/bombardiers/'
+        );
+        const eplTopScoresCharset = (eplTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const eplTopScoresBuf = await eplTopScoresRes.arrayBuffer();
+        const eplTopScoresHtml = iconv.decode(
+            Buffer.from(eplTopScoresBuf),
+            eplTopScoresCharset || 'windows-1251'
+        );
+        const $eplTopScores = cheerio.load(eplTopScoresHtml);
 
-            $eplTopScores('table.se19-table-statistics tr').each((i, element) => {
-                eplTopScores.push({
-                    place: $eplTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $eplTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $eplTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $eplTopScores(element).find('td').eq(4).text(),
-                    goals: $eplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $eplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $eplTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $eplTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $eplTopScores('table.se19-table-statistics tr').each((i, element) => {
+            eplTopScores.push({
+                place: $eplTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $eplTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $eplTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $eplTopScores(element).find('td').eq(4).text(),
+                goals: $eplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $eplTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $eplTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $eplTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM eplts', (err => {
+        });
+
+        db.query('DELETE FROM eplts', (err => {
+            if(err) throw err;
+        }));
+
+        eplTopScores.map((e) => {
+            db.query('INSERT INTO eplts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            eplTopScores.map((e) => {
-                db.query('INSERT INTO eplts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $eplTopScores to parse and manipulate the HTML data
-            // For example: $eplTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $eplTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/foreign/spain/laleague/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const laligaTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $laligaTopScores = cheerio.load(laligaTopScoresHtml);
+        const laligaTopScoresRes = await fetch( // laligaTopScores
+            'https://www.sport-express.ru/football/L/foreign/spain/laleague/2023-2024/statistics/bombardiers/'
+        );
+        const laligaTopScoresCharset = (laligaTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const laligaTopScoresBuf = await laligaTopScoresRes.arrayBuffer();
+        const laligaTopScoresHtml = iconv.decode(
+            Buffer.from(laligaTopScoresBuf),
+            laligaTopScoresCharset || 'windows-1251'
+        );
+        const $laligaTopScores = cheerio.load(laligaTopScoresHtml);
 
-            $laligaTopScores('table.se19-table-statistics tr').each((i, element) => {
-                laligaTopScores.push({
-                    place: $laligaTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $laligaTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $laligaTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $laligaTopScores(element).find('td').eq(4).text(),
-                    goals: $laligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $laligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $laligaTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $laligaTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $laligaTopScores('table.se19-table-statistics tr').each((i, element) => {
+            laligaTopScores.push({
+                place: $laligaTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $laligaTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $laligaTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $laligaTopScores(element).find('td').eq(4).text(),
+                goals: $laligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $laligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $laligaTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $laligaTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM laligats', (err => {
+        });
+
+        db.query('DELETE FROM laligats', (err => {
+            if(err) throw err;
+        }));
+
+        laligaTopScores.map((e) => {
+            db.query('INSERT INTO laligats (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            laligaTopScores.map((e) => {
-                db.query('INSERT INTO laligats (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $laligaTopScores to parse and manipulate the HTML data
-            // For example: $laligaTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $laligaTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/foreign/german/bundes1/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const bundesligaTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $bundesligaTopScores = cheerio.load(bundesligaTopScoresHtml);
+        const bundesligaTopScoresRes = await fetch( // bundesligaTopScores
+            'https://www.sport-express.ru/football/L/foreign/german/bundes1/2023-2024/statistics/bombardiers/'
+        );
+        const bundesligaTopScoresCharset = (bundesligaTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const bundesligaTopScoresBuf = await bundesligaTopScoresRes.arrayBuffer();
+        const bundesligaTopScoresHtml = iconv.decode(
+            Buffer.from(bundesligaTopScoresBuf),
+            bundesligaTopScoresCharset || 'windows-1251'
+        );
+        const $bundesligaTopScores = cheerio.load(bundesligaTopScoresHtml);
 
-            $bundesligaTopScores('table.se19-table-statistics tr').each((i, element) => {
-                bundesligaTopScores.push({
-                    place: $bundesligaTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $bundesligaTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $bundesligaTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $bundesligaTopScores(element).find('td').eq(4).text(),
-                    goals: $bundesligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $bundesligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $bundesligaTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $bundesligaTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $bundesligaTopScores('table.se19-table-statistics tr').each((i, element) => {
+            bundesligaTopScores.push({
+                place: $bundesligaTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $bundesligaTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $bundesligaTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $bundesligaTopScores(element).find('td').eq(4).text(),
+                goals: $bundesligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $bundesligaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $bundesligaTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $bundesligaTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM bundesligats', (err => {
+        });
+
+        db.query('DELETE FROM bundesligats', (err => {
+            if(err) throw err;
+        }));
+
+        bundesligaTopScores.map((e) => {
+            db.query('INSERT INTO bundesligats (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            bundesligaTopScores.map((e) => {
-                db.query('INSERT INTO bundesligats (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $bundesligaTopScores to parse and manipulate the HTML data
-            // For example: $bundesligaTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $bundesligaTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/foreign/italy/seriaa/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const serieaTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $serieaTopScores = cheerio.load(serieaTopScoresHtml);
+        const serieaTopScoresRes = await fetch( // serieaTopScores
+            'https://www.sport-express.ru/football/L/foreign/italy/seriaa/2023-2024/statistics/bombardiers/'
+        );
+        const serieaTopScoresCharset = (serieaTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const serieaTopScoresBuf = await serieaTopScoresRes.arrayBuffer();
+        const serieaTopScoresHtml = iconv.decode(
+            Buffer.from(serieaTopScoresBuf),
+            serieaTopScoresCharset || 'windows-1251'
+        );
+        const $serieaTopScores = cheerio.load(serieaTopScoresHtml);
 
-            $serieaTopScores('table.se19-table-statistics tr').each((i, element) => {
-                serieaTopScores.push({
-                    place: $serieaTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $serieaTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $serieaTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $serieaTopScores(element).find('td').eq(4).text(),
-                    goals: $serieaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $serieaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $serieaTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $serieaTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $serieaTopScores('table.se19-table-statistics tr').each((i, element) => {
+            serieaTopScores.push({
+                place: $serieaTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $serieaTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $serieaTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $serieaTopScores(element).find('td').eq(4).text(),
+                goals: $serieaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $serieaTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $serieaTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $serieaTopScores(element).find('td:nth-child(4) div a').text()
             });
-            
-            db.query('DELETE FROM serieats', (err => {
+        });
+        
+        db.query('DELETE FROM serieats', (err => {
+            if(err) throw err;
+        }));
+
+        serieaTopScores.map((e) => {
+            db.query('INSERT INTO serieats (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            serieaTopScores.map((e) => {
-                db.query('INSERT INTO serieats (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $serieaTopScores to parse and manipulate the HTML data
-            // For example: $serieaTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $serieaTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/foreign/france/league1/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const ligue1TopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $ligue1TopScores = cheerio.load(ligue1TopScoresHtml);
+        const ligue1TopScoresRes = await fetch( // ligue1TopScores
+            'https://www.sport-express.ru/football/L/foreign/france/league1/2023-2024/statistics/bombardiers/'
+        );
+        const ligue1TopScoresCharset = (ligue1TopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const ligue1TopScoresBuf = await ligue1TopScoresRes.arrayBuffer();
+        const ligue1TopScoresHtml = iconv.decode(
+            Buffer.from(ligue1TopScoresBuf),
+            ligue1TopScoresCharset || 'windows-1251'
+        );
+        const $ligue1TopScores = cheerio.load(ligue1TopScoresHtml);
 
-            $ligue1TopScores('table.se19-table-statistics tr').each((i, element) => {
-                ligue1TopScores.push({
-                    place: $ligue1TopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $ligue1TopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $ligue1TopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $ligue1TopScores(element).find('td').eq(4).text(),
-                    goals: $ligue1TopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $ligue1TopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $ligue1TopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $ligue1TopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $ligue1TopScores('table.se19-table-statistics tr').each((i, element) => {
+            ligue1TopScores.push({
+                place: $ligue1TopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $ligue1TopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $ligue1TopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $ligue1TopScores(element).find('td').eq(4).text(),
+                goals: $ligue1TopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $ligue1TopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $ligue1TopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $ligue1TopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM ligue1ts', (err => {
+        });
+
+        db.query('DELETE FROM ligue1ts', (err => {
+            if(err) throw err;
+        }));
+
+        ligue1TopScores.map((e) => {
+            db.query('INSERT INTO ligue1ts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            ligue1TopScores.map((e) => {
-                db.query('INSERT INTO ligue1ts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $ligue1TopScores to parse and manipulate the HTML data
-            // For example: $ligue1TopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $ligue1TopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/eurocups/championsleague/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const uclTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $uclTopScores = cheerio.load(uclTopScoresHtml);
+        const uclTopScoresRes = await fetch( // uclTopScores
+            'https://www.sport-express.ru/football/L/eurocups/championsleague/2023-2024/statistics/bombardiers/'
+        );
+        const uclTopScoresCharset = (uclTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const uclTopScoresBuf = await uclTopScoresRes.arrayBuffer();
+        const uclTopScoresHtml = iconv.decode(
+            Buffer.from(uclTopScoresBuf),
+            uclTopScoresCharset || 'windows-1251'
+        );
+        const $uclTopScores = cheerio.load(uclTopScoresHtml);
 
-            $uclTopScores('body > div.se-page-wrapper > section > div.se-grid2col.se-grid2col--one > div > div > div > table > tbody > tr').each((i, element) => {
-                uclTopScores.push({
-                    place: $uclTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $uclTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $uclTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $uclTopScores(element).find('td').eq(4).text(),
-                    goals: $uclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $uclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $uclTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $uclTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $uclTopScores('body > div.se-page-wrapper > section > div.se-grid2col.se-grid2col--one > div > div > div > table > tbody > tr').each((i, element) => {
+            uclTopScores.push({
+                place: $uclTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $uclTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $uclTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $uclTopScores(element).find('td').eq(4).text(),
+                goals: $uclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $uclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $uclTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $uclTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM uclts', (err => {
+        });
+
+        db.query('DELETE FROM uclts', (err => {
+            if(err) throw err;
+        }));
+
+        uclTopScores.map((e) => {
+            db.query('INSERT INTO uclts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            uclTopScores.map((e) => {
-                db.query('INSERT INTO uclts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $uclTopScores to parse and manipulate the HTML data
-            // For example: $uclTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $uclTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/eurocups/euroleague/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const uelTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $uelTopScores = cheerio.load(uelTopScoresHtml);
+        const uelTopScoresRes = await fetch( // uelTopScores
+            'https://www.sport-express.ru/football/L/eurocups/euroleague/2023-2024/statistics/bombardiers/'
+        );
+        const uelTopScoresCharset = (uelTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const uelTopScoresBuf = await uelTopScoresRes.arrayBuffer();
+        const uelTopScoresHtml = iconv.decode(
+            Buffer.from(uelTopScoresBuf),
+            uelTopScoresCharset || 'windows-1251'
+        );
+        const $uelTopScores = cheerio.load(uelTopScoresHtml);
 
-            $uelTopScores('body > div.se-page-wrapper > section > div.se-grid2col.se-grid2col--one > div > div > div > table > tbody > tr').each((i, element) => {
-                uelTopScores.push({
-                    place: $uelTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $uelTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $uelTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $uelTopScores(element).find('td').eq(4).text(),
-                    goals: $uelTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $uelTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $uelTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $uelTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $uelTopScores('body > div.se-page-wrapper > section > div.se-grid2col.se-grid2col--one > div > div > div > table > tbody > tr').each((i, element) => {
+            uelTopScores.push({
+                place: $uelTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $uelTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $uelTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $uelTopScores(element).find('td').eq(4).text(),
+                goals: $uelTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $uelTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $uelTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $uelTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM uelts', (err => {
+        });
+
+        db.query('DELETE FROM uelts', (err => {
+            if(err) throw err;
+        }));
+
+        uelTopScores.map((e) => {
+            db.query('INSERT INTO uelts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            uelTopScores.map((e) => {
-                db.query('INSERT INTO uelts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $uelTopScores to parse and manipulate the HTML data
-            // For example: $uelTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $uelTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/L/eurocups/conferenceleague/2022-2023/statistics/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const ueclTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $ueclTopScores = cheerio.load(ueclTopScoresHtml);
+        const ueclTopScoresRes = await fetch( // ueclTopScores
+            'https://www.sport-express.ru/football/L/eurocups/conferenceleague/2023-2024/statistics/bombardiers/'
+        );
+        const ueclTopScoresCharset = (ueclTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const ueclTopScoresBuf = await ueclTopScoresRes.arrayBuffer();
+        const ueclTopScoresHtml = iconv.decode(
+            Buffer.from(ueclTopScoresBuf),
+            ueclTopScoresCharset || 'windows-1251'
+        );
+        const $ueclTopScores = cheerio.load(ueclTopScoresHtml);
 
-            $ueclTopScores('body > div.se-page-wrapper > section > div.se-grid2col.se-grid2col--one > div > div > div > table > tbody > tr').each((i, element) => {
-                ueclTopScores.push({
-                    place: $ueclTopScores(element).find('.se19-table-statistics__td--place').text(),
-                    img: $ueclTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $ueclTopScores(element).find('.se19-table-statistics__td--name a').text(),
-                    games: $ueclTopScores(element).find('td').eq(4).text(),
-                    goals: $ueclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $ueclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $ueclTopScores(element).find('td:nth-child(4) div img').attr('src'),
-                    tName: $ueclTopScores(element).find('td:nth-child(4) div a').text()
-                });
+        $ueclTopScores('body > div.se-page-wrapper > section > div.se-grid2col.se-grid2col--one > div > div > div > table > tbody > tr').each((i, element) => {
+            ueclTopScores.push({
+                place: $ueclTopScores(element).find('.se19-table-statistics__td--place').text(),
+                img: $ueclTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $ueclTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                games: $ueclTopScores(element).find('td').eq(4).text(),
+                goals: $ueclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $ueclTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $ueclTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                tName: $ueclTopScores(element).find('td:nth-child(4) div a').text()
             });
-    
-            db.query('DELETE FROM ueclts', (err => {
+        });
+
+        db.query('DELETE FROM ueclts', (err => {
+            if(err) throw err;
+        }));
+
+        ueclTopScores.map((e) => {
+            db.query('INSERT INTO ueclts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            ueclTopScores.map((e) => {
-                db.query('INSERT INTO ueclts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $ueclTopScores to parse and manipulate the HTML data
-            // For example: $ueclTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $ueclTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
     }
 
     try {
-        try {
-            const url =
-              'https://www.sport-express.ru/football/N/nation-league/stats/bombardiers/';
-        
-            // Fetch the data using Axios
-            const response = await axios.get(url, {
-              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
-            });
-        
-            // Extract the charset from the response headers
-            const contentType = response.headers['content-type'] || '';
-            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
-        
-            // Decode the response using iconv-lite
-            const unlTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
-        
-            // Load the HTML using cheerio
-            const $unlTopScores = cheerio.load(unlTopScoresHtml);
+        const unlTopScoresRes = await fetch( // unlTopScores
+            'https://www.sport-express.ru/football/N/nation-league/stats/bombardiers/'
+        );
+        const unlTopScoresCharset = (unlTopScoresRes.headers.get('content-type') ?? '').split(/\s*;\s*/).find((/** @type {string} */ x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        const unlTopScoresBuf = await unlTopScoresRes.arrayBuffer();
+        const unlTopScoresHtml = iconv.decode(
+            Buffer.from(unlTopScoresBuf),
+            unlTopScoresCharset || 'windows-1251'
+        );
+        const $unlTopScores = cheerio.load(unlTopScoresHtml);
 
-            $unlTopScores('#__layout > section > section:nth-child(2) > section.app__holder > div > div > table > tbody > tr').each((i, element) => {
-                unlTopScores.push({
-                    place: $unlTopScores(element).find('.statistics__td_number').text(),
-                    img: $unlTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                    player: $unlTopScores(element).find('.statistics__td_player a').text(),
-                    games: $unlTopScores(element).find('td').eq(4).text(),
-                    goals: $unlTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
-                    assists: '(' + $unlTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
-                    tLogo: $unlTopScores(element).find('td:nth-child(4) .flag img').attr('src'),
-                    tName: $unlTopScores(element).find('td:nth-child(4) .name a').text()
-                });
+        $unlTopScores('#__layout > section > section:nth-child(2) > section.app__holder > div > div > table > tbody > tr').each((i, element) => {
+            unlTopScores.push({
+                place: $unlTopScores(element).find('.statistics__td_number').text(),
+                img: $unlTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                player: $unlTopScores(element).find('.statistics__td_player a').text(),
+                games: $unlTopScores(element).find('td').eq(4).text(),
+                goals: $unlTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                assists: '(' + $unlTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                tLogo: $unlTopScores(element).find('td:nth-child(4) .flag img').attr('src'),
+                tName: $unlTopScores(element).find('td:nth-child(4) .name a').text()
             });
-    
-            db.query('DELETE FROM unlTS', (err => {
+        });
+
+        db.query('DELETE FROM unlts', (err => {
+            if(err) throw err;
+        }));
+
+        unlTopScores.map((e) => {
+            db.query('INSERT INTO unlts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
                 if(err) throw err;
             }));
-    
-            unlTopScores.map((e) => {
-                db.query('INSERT INTO unlTS (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-                    if(err) throw err;
-                }));
-            });
-        
-            // Now you can use $unlTopScores to parse and manipulate the HTML data
-            // For example: $unlTopScores('h1').text() will give you the text content of the first <h1> element
-        
-            // You can return or do further processing with $unlTopScores here
-        
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
+        });
     }
     catch (err) {
         console.error(err);
@@ -4044,7 +3906,7 @@ const parsing = async () => {
     }));
 
     euQualResults.map((e) => {
-        db.query('INSERT INTO euqualresults (round, hName, aName, hLogo, aLogo, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.round, e.hName, e.aName, e.hLogo, e.aLogo, e.hScore, e.aScore, e.dateTime], (err => {
+        db.query('INSERT INTO euQualresults (round, hName, aName, hLogo, aLogo, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.round, e.hName, e.aName, e.hLogo, e.aLogo, e.hScore, e.aScore, e.dateTime], (err => {
             if(err) throw err;
         }));
     });
@@ -4162,6 +4024,7 @@ setInterval(() => {
     liveMatches.splice(0, liveMatches.length);
     liveMatchesLinks.splice(0, liveMatchesLinks.length);
     liveMatchesLeagueNameRoundDate.splice(0, liveMatchesLeagueNameRoundDate.length);
+    expectedMatches.splice(0,expectedMatches.length);
 }, 60000);
 
 setInterval(() => {
