@@ -3014,35 +3014,61 @@ const parsing = async () => {
         console.error(err);
     }
 
-    await axios.get('https://www.championat.com/football/_euro/tournament/5287/statistic/player/bombardir/')
-    .then(response => response.data)
-    .then(response => {
-        const $ = cheerio.load(response);
-
-        $('body > div.page > div.mc-page.js-main-content > div.mc-page-content.tournament > div.page-content > div > div.js-table-component > table > tbody > tr').each((i, element) => {
-            euroQualTopScores.push({
-                place: $(element).find('td.table-responsive__row-item._center._hidden-td').text(),
-                img: $(element).find('.se19-table-statistics__td--img a img').attr('src'),
-                player: $(element).find('td.table-responsive__row-item._player.football._order_1._wm_basis_35._left-padding-cell > a > span.table-item__name').text(),
-                games: $(element).find('td.table-responsive__row-item._pstat-game.football._order_3').text(),
-                goals: $(element).find('td.table-responsive__row-item._data.football._order_2').text(),
-                assists: $(element).find('td.table-responsive__row-item._pen.football._order_6._desktop').text(),
-                tLogo: $(element).find('td.table-responsive__row-item._player.football._order_1._wm_basis_35._left-padding-cell > a > span.table-item__flag > img').attr('src'),
-                tName: $(element).find('td.table-responsive__row-item._player.football._order_1._wm_basis_35._left-padding-cell > a > span.table-item__flag > img').attr('title')
+    try {
+        try {
+            const url =
+              'https://www.sport-express.ru/football/L/europe/2024/qualify/statistics/bombardiers/';
+        
+            // Fetch the data using Axios
+            const response = await axios.get(url, {
+              responseType: 'arraybuffer', // Tell Axios to return the response as an ArrayBuffer
             });
-        });
-    })
-    .catch(err => console.log(err));
+        
+            // Extract the charset from the response headers
+            const contentType = response.headers['content-type'] || '';
+            const charset = contentType.split(/\s*;\s*/).find((x) => x.startsWith('charset'))?.replace(/charset=/, '');
+        
+            // Decode the response using iconv-lite
+            const euroQualTopScoresHtml = iconv.decode(response.data, charset || 'windows-1251');
+        
+            // Load the HTML using cheerio
+            const $euroQualTopScores = cheerio.load(euroQualTopScoresHtml);
 
-    db.query('DELETE FROM euroqualts', (err => {
-        if(err) throw err;
-    }));
-
-    euroQualTopScores.map((e) => {
-        db.query('INSERT INTO euroqualts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
-            if(err) throw err;
-        }));
-    });
+            $euroQualTopScores('table.se19-table-statistics tr').each((i, element) => {
+                euroQualTopScores.push({
+                    place: $euroQualTopScores(element).find('.se19-table-statistics__td--place').text(),
+                    img: $euroQualTopScores(element).find('.se19-table-statistics__td--img a img').attr('src'),
+                    player: $euroQualTopScores(element).find('.se19-table-statistics__td--name a').text(),
+                    games: $euroQualTopScores(element).find('td').eq(4).text(),
+                    goals: $euroQualTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[0],
+                    assists: '(' + $euroQualTopScores(element).find('td').eq(5).text().replace(/\s/g, '').split('(')[1],
+                    tLogo: $euroQualTopScores(element).find('td:nth-child(4) div img').attr('src'),
+                    tName: $euroQualTopScores(element).find('td:nth-child(4) div a').text()
+                });
+            });
+    
+            db.query('DELETE FROM euroqualts', (err => {
+                if(err) throw err;
+            }));
+    
+            euroQualTopScores.map((e) => {
+                db.query('INSERT INTO euroqualts (place, img, player, games, goals, pen, tLogo, tName) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.place, e.img, e.player, e.games, e.goals, e.assists, e.tLogo, e.tName], (err => {
+                    if(err) throw err;
+                }));
+            });
+        
+            // Now you can use $euroQualTopScores to parse and manipulate the HTML data
+            // For example: $euroQualTopScores('h1').text() will give you the text content of the first <h1> element
+        
+            // You can return or do further processing with $euroQualTopScores here
+        
+          } catch (error) {
+            console.error('Error fetching data:', error);
+          }
+    }
+    catch (err) {
+        console.error(err);
+    }
 
     await axios.get('https://soccer365.ru/ranking/fifa/') // fifa ranking
     .then(response => response.data)
@@ -4076,7 +4102,7 @@ const parsing = async () => {
     }));
 
     euQualResults.map((e) => {
-        db.query('INSERT INTO euQualresults (round, hName, aName, hLogo, aLogo, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.round, e.hName, e.aName, e.hLogo, e.aLogo, e.hScore, e.aScore, e.dateTime], (err => {
+        db.query('INSERT INTO euqualresults (round, hName, aName, hLogo, aLogo, hScore, aScore, dateTime) VALUES(?, ?, ?, ?, ?, ?, ?, ?)', [e.round, e.hName, e.aName, e.hLogo, e.aLogo, e.hScore, e.aScore, e.dateTime], (err => {
             if(err) throw err;
         }));
     });
