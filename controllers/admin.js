@@ -10,7 +10,7 @@ module.exports.check = (req, res) => {
 }
 
 module.exports.addNews = (req, res) => {
-    db.query('INSERT INTO news (category, title, img, content, meta_description, meta_keywords) VALUES(?, ?, ?, ?, ?, ?)', [req.body.category, req.body.title, req.body.img, req.body.content, req.body.metaDescr, req.body.metaKeywords], (err => {
+    db.query('INSERT INTO news (category, title, img, content, meta_description, meta_keywords, author) VALUES(?, ?, ?, ?, ?, ?, ?)', [req.body.category, req.body.title, req.body.img, req.body.content, req.body.metaDescr, req.body.metaKeywords, req.body.author], (err => {
         if(err) throw err;
     }));
 }

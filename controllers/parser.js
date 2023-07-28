@@ -2457,7 +2457,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/russia/premier/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/russia/premier/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2513,7 +2513,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/foreign/england/premier/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/foreign/england/premier/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2569,7 +2569,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/foreign/spain/laleague/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/foreign/spain/laleague/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2625,7 +2625,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/foreign/german/bundes1/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/foreign/german/bundes1/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2681,7 +2681,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/foreign/italy/seriaa/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/foreign/italy/seriaa/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2737,7 +2737,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/foreign/france/league1/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/foreign/france/league1/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2793,7 +2793,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/eurocups/championsleague/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/eurocups/championsleague/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2849,7 +2849,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/eurocups/euroleague/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/eurocups/euroleague/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
@@ -2905,7 +2905,7 @@ const parsing = async () => {
     try {
         try {
             const url =
-              'https://www.sport-express.ru/football/L/eurocups/conferenceleague/2022-2023/statistics/bombardiers/';
+              'https://www.sport-express.ru/football/L/eurocups/conferenceleague/2023-2024/statistics/bombardiers/';
         
             // Fetch the data using Axios
             const response = await axios.get(url, {
