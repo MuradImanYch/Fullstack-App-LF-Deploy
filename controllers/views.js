@@ -4,7 +4,7 @@ module.exports.post = (req, res) => {
     db.query(`SELECT views FROM news WHERE id = "${req.body.id.split('-')[0]}"`, ((err, results) => {
         if(err) throw err;
         const ipAddress = req.body.clientIP;
-        results[0].views?.includes(`${req.body.clientIP}`) ? null :
+        results[0]?.views?.includes(`${req.body.clientIP}`) ? null :
     db.query(
         `SELECT views FROM news WHERE id="${req.body.id.split('-')[0]}"`,
         (error, results) => {      
@@ -28,6 +28,6 @@ module.exports.post = (req, res) => {
 module.exports.checkIP = (req, res) => {
     db.query(`SELECT views FROM news WHERE id = ${req.body.id}`, ((err, results) => {
         if(err) throw err;
-        res.send(results[0].views?.split(',') !== undefined && JSON.stringify(Array.from(results[0].views.split(',')).length));
+        res.send(results[0]?.views?.split(',') !== undefined && JSON.stringify(Array.from(results[0].views.split(',')).length));
       }));
 }
