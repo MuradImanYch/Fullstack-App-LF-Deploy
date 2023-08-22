@@ -26,6 +26,7 @@ const resultsRoutes = require('./routes/results.js');
 const leagueSeasonInfoRoutes = require('./routes/leagueSeasonInfo.js');
 const likeRoutes = require('./routes/like.js');
 const viewsRoutes = require('./routes/views.js');
+const sitemapRoutes = require('./routes/sitemap.js');
 require('./controllers/parser.js');
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/results', resultsRoutes);
 app.use('/leagueinfo', leagueSeasonInfoRoutes);
 app.use('/like', likeRoutes);
 app.use('/views', viewsRoutes);
+app.use('/sitemap', sitemapRoutes);
 app.use(cookieParser());
 
 const storage = multer.diskStorage({ // multer handler
