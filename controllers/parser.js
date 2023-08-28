@@ -160,11 +160,13 @@ const liveParsing = async () => {
         if(err) throw err;
     }));
 
-    liveMatches?.map((e) => {
-        db.query('INSERT INTO livematches (hName, aName, hScore, aScore, hLogo, aLogo, lLogo, lName, time, round, roundInfo) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.hName, e.aName, e.hScore, e.aScore, e.hLogo, e.aLogo, e.lLogo, e.lNameRoundDateTime[0]?.indexOf('Товарищеский') !== -1 ? 'Товарищеский' : e.lNameRoundDateTime[0], e.time, e.lNameRoundDateTime[1], e.lNameRoundDateTime[2]], (err => {
-            if(err) throw err;
-        }));
-    });
+    if(liveMatches.length > 0) {
+        liveMatches?.map((e) => {
+            db.query('INSERT INTO livematches (hName, aName, hScore, aScore, hLogo, aLogo, lLogo, lName, time, round, roundInfo) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [e.hName, e.aName, e.hScore, e.aScore, e.hLogo, e.aLogo, e.lLogo, e.lNameRoundDateTime[0]?.indexOf('Товарищеский') !== -1 ? 'Товарищеский' : e.lNameRoundDateTime[0], e.time, e.lNameRoundDateTime[1], e.lNameRoundDateTime[2]], (err => {
+                if(err) throw err;
+            }));
+        });
+    }
 
     await axios.get('https://soccer365.ru/') // expected matches
     .then(response => response.data)
